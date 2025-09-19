@@ -164,11 +164,18 @@ export default function TextFieldComponent({
   return (
     <div
       ref={fieldRef}
-      className={`absolute cursor-move transition-all duration-150 touch-none ${
+      className={`absolute cursor-move transition-all duration-150 touch-none select-none ${
         isSelected 
           ? 'border-2 border-primary shadow-lg shadow-primary/20' 
           : 'border-2 border-black hover:border-primary hover:shadow-md hover:shadow-primary/10'
       }`}
+      style={{
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}
       style={{
         left: field.x * scale,
         top: field.y * scale,
@@ -182,7 +189,7 @@ export default function TextFieldComponent({
       onTouchStart={handleTouchStart}
       data-testid={`text-field-${field.id}`}
     >
-      <div className="w-full h-full flex items-center px-2 text-sm text-gray-600 pointer-events-none overflow-hidden">
+      <div className="w-full h-full flex items-center px-2 text-sm text-gray-600 pointer-events-none overflow-hidden select-none">
         {field.name}
       </div>
       
