@@ -118,19 +118,27 @@ export default function TextFieldComponent({
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    onSelect();
-
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
-    setInitialPosition({ x: field.x, y: field.y });
+    
+    if (!isSelected) {
+      // If not selected, just select it
+      onSelect();
+    } else {
+      // If already selected, start dragging
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      setInitialPosition({ x: field.x, y: field.y });
+    }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    onSelect();
-
-    if (e.touches.length === 1) {
+    
+    if (!isSelected) {
+      // If not selected, just select it
+      onSelect();
+    } else if (e.touches.length === 1) {
+      // If already selected, start dragging
       const touch = e.touches[0];
       setIsDragging(true);
       setDragStart({ x: touch.clientX, y: touch.clientY });
@@ -164,10 +172,10 @@ export default function TextFieldComponent({
   return (
     <div
       ref={fieldRef}
-      className={`absolute cursor-move transition-all duration-150 touch-none select-none ${
+      className={`absolute transition-all duration-150 touch-none select-none ${
         isSelected 
-          ? 'border-2 border-primary shadow-lg shadow-primary/20' 
-          : 'border-2 border-black hover:border-primary hover:shadow-md hover:shadow-primary/10'
+          ? 'border-2 border-primary shadow-lg shadow-primary/20 cursor-move' 
+          : 'border-2 border-black hover:border-primary hover:shadow-md hover:shadow-primary/10 cursor-pointer'
       }`}
       style={{
         WebkitUserSelect: 'none',
