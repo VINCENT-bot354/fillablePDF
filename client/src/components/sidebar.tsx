@@ -15,6 +15,9 @@ interface SidebarProps {
   onUpdateField: (id: string, updates: Partial<TextField>) => void;
   onDeleteField: (id: string) => void;
   onExportPDF: () => void;
+  onUndo: () => void;
+  onRestart: () => void;
+  canUndo: boolean;
   isExporting: boolean;
 }
 
@@ -27,6 +30,9 @@ export default function Sidebar({
   onUpdateField,
   onDeleteField,
   onExportPDF,
+  onUndo,
+  onRestart,
+  canUndo,
   isExporting,
 }: SidebarProps) {
   const [fieldName, setFieldName] = useState("");
@@ -87,12 +93,36 @@ export default function Sidebar({
           {/* Add Text Field Button */}
           <Button
             onClick={onAddTextField}
-            className="w-full mb-6 flex items-center justify-center gap-2"
+            className="w-full mb-4 flex items-center justify-center gap-2"
             data-testid="button-add-field"
           >
             <i className="fas fa-plus"></i>
             Add Text Field
           </Button>
+
+          {/* Undo and Restart Buttons */}
+          <div className="flex gap-2 mb-6">
+            <Button
+              onClick={onUndo}
+              disabled={!canUndo}
+              variant="outline"
+              className="flex-1 flex items-center justify-center gap-2"
+              data-testid="button-undo"
+            >
+              <i className="fas fa-undo"></i>
+              Undo
+            </Button>
+            <Button
+              onClick={onRestart}
+              disabled={textFields.length === 0}
+              variant="outline"
+              className="flex-1 flex items-center justify-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+              data-testid="button-restart"
+            >
+              <i className="fas fa-sync-alt"></i>
+              Restart
+            </Button>
+          </div>
           
           {/* Field Properties Panel */}
           {selectedField && (
