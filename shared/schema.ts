@@ -22,6 +22,7 @@ export const textFields = pgTable("text_fields", {
   width: real("width").notNull(),
   height: real("height").notNull(),
   required: boolean("required").default(false),
+  fontFamily: text("font_family").default("Arial"),
 });
 
 export const insertDocumentSchema = createInsertSchema(documents).omit({
@@ -46,6 +47,6 @@ export const textFieldSchema = z.object({
   width: z.number().min(1),
   height: z.number().min(1),
   required: z.boolean().default(false),
-  font: z.enum(["Arial", "Vivaldi", "Zapf Chancery"]).default("Arial"),
+  fontFamily: z.enum(["Arial", "Vivaldi", "Zapf Chancery"]).default("Arial"),
   createdAt: z.date().default(() => new Date()),
 });

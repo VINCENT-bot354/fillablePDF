@@ -120,7 +120,7 @@ export default function FormCreator() {
       width: 150,
       height: 35,
       required: false,
-      font: "Arial" as const,
+      fontFamily: "Arial" as const,
     };
 
     createFieldMutation.mutate(newField);

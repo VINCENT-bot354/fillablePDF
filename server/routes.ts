@@ -197,16 +197,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const textField = form.createTextField(field.name);
         
-        // Determine font based on field.font property
-        let fontName = 'Helvetica'; // Default fallback
-        if (field.font === 'Arial') {
-          fontName = 'Helvetica'; // Arial equivalent in PDF
-        } else if (field.font === 'Vivaldi') {
-          fontName = 'Helvetica-Oblique'; // Best available cursive equivalent
-        } else if (field.font === 'Zapf Chancery') {
-          fontName = 'Helvetica-Oblique'; // Best available cursive equivalent
-        }
-        
         textField.addToPage(firstPage, {
           x: field.x,
           y: yCoordinate,
@@ -215,8 +205,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Transparent background and border
           backgroundColor: undefined,
           borderColor: undefined,
-          font: fontName,
         });
+        
+        // Set font after adding to page to avoid the font error
+        try {
+          const helveticaFont = await pdfDoc.embedFont('Helvetica');
+          textField.setFontAndSize(helveticaFont, 12);
+        } catch (error) {
+          // Fallback - don't set font if there's an error
+          console.warn('Could not set font for field:', field.name);
+        }
       }
 
       const pdfBytes = await pdfDoc.save();
