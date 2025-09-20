@@ -33,7 +33,7 @@ const upload = multer({
 
 // --- font paths
 const FONT_PATHS: Record<string, string> = {
-  Arial: path.resolve("fonts/Arial.ttf"), // system fallback, you’ll need to drop a copy in /fonts
+  Arial: path.resolve("fonts/Arial.ttf"), // requires a copy placed in /fonts
   Allura: path.resolve("fonts/Allura-Regular.ttf"),
   "Dancing Script": path.resolve("fonts/DancingScript-VariableFont_wght.ttf"),
 };
@@ -67,7 +67,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const metadata = await image.metadata();
 
         const pdfDoc = await PDFDocument.create();
-        const page = pdfDoc.addPage([metadata.width ?? 595, metadata.height ?? 842]);
+        const page = pdfDoc.addPage([
+          metadata.width ?? 595,
+          metadata.height ?? 842,
+        ]);
         const imageBuffer = await image.toBuffer();
 
         if (mimetype === "image/png") {
@@ -128,30 +131,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Document not found" });
       }
 
-      const pdfDoc = await PDFDocument.load(document.data);
-      const fontName = "Allura"; // 👈 or "Arial" or "Dancing Script"
+      // Pick font from query param, fallback to Arial
+      const requestedFont = (req.query.font as string) || "Arial";
+      const fontName = FONT_PATHS[requestedFont]
+        ? requestedFont
+        : "Arial"; // fallback safety
+
       const fontBytes = fs.readFileSync(FONT_PATHS[fontName]);
-      const customFont = await pdfDoc.embedFont(fontBytes);
+      const customFont = await PDFDocument.load(document.data).then(
+        async (pdfDoc) => {
+          const embeddedFont = await pdfDoc.embedFont(fontBytes);
 
-      const pages = pdfDoc.getPages();
-      const firstPage = pages[0];
+          const pages = pdfDoc.getPages();
+          const firstPage = pages[0];
 
-      textFields.forEach((field) => {
-        firstPage.drawText(field.value, {
-          x: field.x,
-          y: field.y,
-          size: field.fontSize || 16,
-          font: customFont,
-        });
-      });
+          textFields.forEach((field) => {
+            firstPage.drawText(field.value, {
+              x: field.x,
+              y: field.y,
+              size: field.fontSize || 16,
+              font: embeddedFont,
+            });
+          });
 
-      const pdfBytes = await pdfDoc.save();
+          return pdfDoc.save();
+        }
+      );
+
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
         `attachment; filename=${document.name}`
       );
-      res.send(Buffer.from(pdfBytes));
+      res.send(Buffer.from(customFont));
     } catch (err: any) {
       console.error("Download error:", err);
       res.status(500).json({ error: err.message });
@@ -161,4 +173,3 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   return httpServer;
 }
-  
