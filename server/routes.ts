@@ -13,17 +13,27 @@ const upload = multer({
   dest: "uploads/",
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+    const allowedTypes = [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+    ];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only PDF, PNG, and JPG files are allowed."));
+      cb(
+        new Error(
+          "Invalid file type. Only PDF, PNG, and JPG files are allowed."
+        )
+      );
     }
   },
 });
 
 // --- font paths
 const FONT_PATHS: Record<string, string> = {
+  Arial: path.resolve("fonts/Arial.ttf"), // system fallback, you’ll need to drop a copy in /fonts
   Allura: path.resolve("fonts/Allura-Regular.ttf"),
   "Dancing Script": path.resolve("fonts/DancingScript-VariableFont_wght.ttf"),
 };
@@ -34,134 +44,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     fs.mkdirSync("uploads");
   }
 
-  // Upload document
-  app.post("/api/documents", upload.single("file"), async (req, res) => {
+  // Ensure fonts directory exists
+  if (!fs.existsSync("fonts")) {
+    fs.mkdirSync("fonts");
+  }
+
+  // Upload route for PDFs/images
+  app.post("/upload", upload.single("file"), async (req, res) => {
     try {
-      if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-
-      let width, height;
-
-      if (req.file.mimetype === "application/pdf") {
-        width = 612; // 8.5in * 72 DPI
-        height = 792; // 11in * 72 DPI
-      } else {
-        const metadata = await sharp(req.file.path).metadata();
-        width = metadata.width || 800;
-        height = metadata.height || 600;
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const documentData = {
-        filename: req.file.filename,
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-        width,
-        height,
-      };
+      const { originalname, path: filePath, mimetype } = req.file;
 
-      const validatedData = insertDocumentSchema.parse(documentData);
-      const document = await storage.createDocument(validatedData);
+      let pdfBuffer: Buffer;
+      if (mimetype === "application/pdf") {
+        pdfBuffer = fs.readFileSync(filePath);
+      } else {
+        // Convert image to PDF
+        const image = sharp(filePath);
+        const metadata = await image.metadata();
 
-      res.json(document);
-    } catch (error) {
-      console.error("Upload error:", error);
-      res
-        .status(400)
-        .json({ message: error instanceof Error ? error.message : "Upload failed" });
+        const pdfDoc = await PDFDocument.create();
+        const page = pdfDoc.addPage([metadata.width ?? 595, metadata.height ?? 842]);
+        const imageBuffer = await image.toBuffer();
+
+        if (mimetype === "image/png") {
+          const pngImage = await pdfDoc.embedPng(imageBuffer);
+          page.drawImage(pngImage, {
+            x: 0,
+            y: 0,
+            width: metadata.width ?? 595,
+            height: metadata.height ?? 842,
+          });
+        } else {
+          const jpgImage = await pdfDoc.embedJpg(imageBuffer);
+          page.drawImage(jpgImage, {
+            x: 0,
+            y: 0,
+            width: metadata.width ?? 595,
+            height: metadata.height ?? 842,
+          });
+        }
+
+        pdfBuffer = await pdfDoc.save();
+      }
+
+      // Save document in storage
+      const document = insertDocumentSchema.parse({
+        name: originalname,
+        data: pdfBuffer,
+      });
+      const savedDoc = await storage.insertDocument(document);
+
+      res.json({ id: savedDoc.id, name: savedDoc.name });
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      res.status(500).json({ error: err.message });
     }
   });
 
-  // Export fillable PDF
-  app.post("/api/documents/:id/export", async (req, res) => {
+  // Add text field route
+  app.post("/text-field", async (req, res) => {
     try {
-      const document = await storage.getDocument(req.params.id);
-      if (!document) return res.status(404).json({ message: "Document not found" });
+      const body = insertTextFieldSchema.parse(req.body);
+      const savedField = await storage.insertTextField(body);
+      res.json(savedField);
+    } catch (err: any) {
+      console.error("Text field error:", err);
+      res.status(400).json({ error: err.message });
+    }
+  });
 
-      const textFields = await storage.getTextFieldsByDocument(req.params.id);
-      const filePath = path.join("uploads", document.filename);
+  // Download filled PDF route
+  app.get("/download/:docId", async (req, res) => {
+    try {
+      const docId = req.params.docId;
+      const document = await storage.getDocument(docId);
+      const textFields = await storage.getTextFieldsByDocumentId(docId);
 
-      let pdfDoc: PDFDocument;
-
-      if (document.mimeType === "application/pdf") {
-        const pdfBytes = fs.readFileSync(filePath);
-        pdfDoc = await PDFDocument.load(pdfBytes);
-      } else {
-        pdfDoc = await PDFDocument.create();
-        const page = pdfDoc.addPage([document.width || 612, document.height || 792]);
-
-        let imageBytes: Uint8Array;
-        let image: any;
-
-        if (document.mimeType === "image/png") {
-          imageBytes = fs.readFileSync(filePath);
-          image = await pdfDoc.embedPng(imageBytes);
-        } else {
-          imageBytes = fs.readFileSync(filePath);
-          image = await pdfDoc.embedJpg(imageBytes);
-        }
-
-        page.drawImage(image, {
-          x: 0,
-          y: 0,
-          width: document.width || 612,
-          height: document.height || 792,
-        });
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
       }
 
-      const form = pdfDoc.getForm();
+      const pdfDoc = await PDFDocument.load(document.data);
+      const fontName = "Allura"; // 👈 or "Arial" or "Dancing Script"
+      const fontBytes = fs.readFileSync(FONT_PATHS[fontName]);
+      const customFont = await pdfDoc.embedFont(fontBytes);
+
       const pages = pdfDoc.getPages();
       const firstPage = pages[0];
-      const { height: pageHeight } = firstPage.getSize();
 
-      for (const field of textFields) {
-        const yCoordinate = pageHeight - field.y - field.height;
-        const textField = form.createTextField(field.name);
-
-        textField.addToPage(firstPage, {
+      textFields.forEach((field) => {
+        firstPage.drawText(field.value, {
           x: field.x,
-          y: yCoordinate,
-          width: field.width,
-          height: field.height,
-          backgroundColor: undefined,
-          borderColor: undefined,
+          y: field.y,
+          size: field.fontSize || 16,
+          font: customFont,
         });
-
-        // --- select font
-        let pdfFont;
-        try {
-          if (field.fontFamily && FONT_PATHS[field.fontFamily]) {
-            const fontBytes = fs.readFileSync(FONT_PATHS[field.fontFamily]);
-            pdfFont = await pdfDoc.embedFont(fontBytes);
-          } else {
-            pdfFont = await pdfDoc.embedFont(PDFDocument.PDFFonts.Helvetica);
-          }
-        } catch (err) {
-          console.warn(`Font embedding failed for ${field.fontFamily}, using Helvetica`);
-          pdfFont = await pdfDoc.embedFont(PDFDocument.PDFFonts.Helvetica);
-        }
-
-        textField.setFont(pdfFont);
-        textField.setFontSize(12);
-      }
+      });
 
       const pdfBytes = await pdfDoc.save();
-
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${document.originalName.replace(
-          /\.[^/.]+$/,
-          ""
-        )}_fillable.pdf"`
+        `attachment; filename=${document.name}`
       );
       res.send(Buffer.from(pdfBytes));
-    } catch (error) {
-      console.error("Export error:", error);
-      res.status(500).json({ message: "Failed to export PDF" });
+    } catch (err: any) {
+      console.error("Download error:", err);
+      res.status(500).json({ error: err.message });
     }
   });
 
   const httpServer = createServer(app);
   return httpServer;
-      }
-      
+}
+  
