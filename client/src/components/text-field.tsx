@@ -24,33 +24,21 @@ export default function TextFieldComponent({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialPosition, setInitialPosition] = useState({ x: 0, y: 0 });
   const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
-  
-  // Local position state for real-time dragging
-  const [localPosition, setLocalPosition] = useState({ x: field.x, y: field.y });
-  const [localSize, setLocalSize] = useState({ width: field.width, height: field.height });
-  const [justFinishedDragging, setJustFinishedDragging] = useState(false);
+
+  // Use current position/size during active operations, otherwise use server values
+  const [currentPosition, setCurrentPosition] = useState({ x: field.x, y: field.y });
+  const [currentSize, setCurrentSize] = useState({ width: field.width, height: field.height });
 
   const fieldRef = useRef<HTMLDivElement>(null);
-
   const scale = zoomLevel / 100;
 
-  // Update local state when field props change (but not if we just finished dragging)
+  // Update current state when field props change, but only when not actively dragging/resizing
   useEffect(() => {
-    if (!isDragging && !isResizing && !justFinishedDragging) {
-      setLocalPosition({ x: field.x, y: field.y });
-      setLocalSize({ width: field.width, height: field.height });
+    if (!isDragging && !isResizing) {
+      setCurrentPosition({ x: field.x, y: field.y });
+      setCurrentSize({ width: field.width, height: field.height });
     }
-  }, [field.x, field.y, field.width, field.height, isDragging, isResizing, justFinishedDragging]);
-
-  // Reset the flag after a brief delay
-  useEffect(() => {
-    if (justFinishedDragging) {
-      const timer = setTimeout(() => {
-        setJustFinishedDragging(false);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [justFinishedDragging]);
+  }, [field.x, field.y, field.width, field.height, isDragging, isResizing]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -59,12 +47,11 @@ export default function TextFieldComponent({
         const deltaY = (e.clientY - dragStart.y) / scale;
         const newX = Math.max(0, initialPosition.x + deltaX);
         const newY = Math.max(0, initialPosition.y + deltaY);
-        // Update local position immediately for real-time feedback
-        setLocalPosition({ x: newX, y: newY });
+        setCurrentPosition({ x: newX, y: newY });
       } else if (isResizing && resizeDirection) {
         const deltaX = (e.clientX - dragStart.x) / scale;
         const deltaY = (e.clientY - dragStart.y) / scale;
-        
+
         let newWidth = initialSize.width;
         let newHeight = initialSize.height;
 
@@ -75,8 +62,7 @@ export default function TextFieldComponent({
           newHeight = Math.max(20, initialSize.height + deltaY);
         }
 
-        // Update local size immediately for real-time feedback
-        setLocalSize({ width: newWidth, height: newHeight });
+        setCurrentSize({ width: newWidth, height: newHeight });
       }
     };
 
@@ -87,13 +73,12 @@ export default function TextFieldComponent({
         const deltaY = (touch.clientY - dragStart.y) / scale;
         const newX = Math.max(0, initialPosition.x + deltaX);
         const newY = Math.max(0, initialPosition.y + deltaY);
-        // Update local position immediately for real-time feedback
-        setLocalPosition({ x: newX, y: newY });
+        setCurrentPosition({ x: newX, y: newY });
       } else if (isResizing && resizeDirection && e.touches.length === 1) {
         const touch = e.touches[0];
         const deltaX = (touch.clientX - dragStart.x) / scale;
         const deltaY = (touch.clientY - dragStart.y) / scale;
-        
+
         let newWidth = initialSize.width;
         let newHeight = initialSize.height;
 
@@ -104,44 +89,26 @@ export default function TextFieldComponent({
           newHeight = Math.max(20, initialSize.height + deltaY);
         }
 
-        // Update local size immediately for real-time feedback
-        setLocalSize({ width: newWidth, height: newHeight });
+        setCurrentSize({ width: newWidth, height: newHeight });
       }
     };
 
-    const handleMouseUp = () => {
-      // Save final position/size to server when dragging/resizing ends
+    const handleEnd = () => {
       if (isDragging) {
-        onUpdatePosition(localPosition.x, localPosition.y);
-        setJustFinishedDragging(true);
+        onUpdatePosition(currentPosition.x, currentPosition.y);
+        setIsDragging(false);
       } else if (isResizing) {
-        onUpdateSize(localSize.width, localSize.height);
+        onUpdateSize(currentSize.width, currentSize.height);
+        setIsResizing(false);
+        setResizeDirection(null);
       }
-      
-      setIsDragging(false);
-      setIsResizing(false);
-      setResizeDirection(null);
-    };
-
-    const handleTouchEnd = () => {
-      // Save final position/size to server when dragging/resizing ends
-      if (isDragging) {
-        onUpdatePosition(localPosition.x, localPosition.y);
-        setJustFinishedDragging(true);
-      } else if (isResizing) {
-        onUpdateSize(localSize.width, localSize.height);
-      }
-      
-      setIsDragging(false);
-      setIsResizing(false);
-      setResizeDirection(null);
     };
 
     if (isDragging || isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mouseup', handleEnd);
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
-      document.addEventListener('touchend', handleTouchEnd);
+      document.addEventListener('touchend', handleEnd);
       document.body.style.userSelect = 'none';
       document.body.style.cursor = isDragging ? 'move' : 
         resizeDirection === 'se' ? 'se-resize' :
@@ -150,69 +117,61 @@ export default function TextFieldComponent({
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseup', handleEnd);
       document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchend', handleEnd);
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
-  }, [isDragging, isResizing, dragStart, initialPosition, initialSize, resizeDirection, scale, onUpdatePosition, onUpdateSize]);
+  }, [isDragging, isResizing, dragStart, initialPosition, initialSize, resizeDirection, scale, currentPosition, currentSize, onUpdatePosition, onUpdateSize]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!isSelected) {
-      // If not selected, just select it
       onSelect();
     } else {
-      // If already selected, start dragging
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
-      // Use current local position as initial position for accurate dragging
-      setInitialPosition({ x: localPosition.x, y: localPosition.y });
+      setInitialPosition({ x: currentPosition.x, y: currentPosition.y });
     }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!isSelected) {
-      // If not selected, just select it
       onSelect();
     } else if (e.touches.length === 1) {
-      // If already selected, start dragging
       const touch = e.touches[0];
       setIsDragging(true);
       setDragStart({ x: touch.clientX, y: touch.clientY });
-      // Use current local position as initial position for accurate dragging
-      setInitialPosition({ x: localPosition.x, y: localPosition.y });
+      setInitialPosition({ x: currentPosition.x, y: currentPosition.y });
     }
   };
 
   const handleResizeMouseDown = (e: React.MouseEvent, direction: 'se' | 'e' | 's') => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setIsResizing(true);
     setResizeDirection(direction);
     setDragStart({ x: e.clientX, y: e.clientY });
-    // Use current local size as initial size for accurate resizing
-    setInitialSize({ width: localSize.width, height: localSize.height });
+    setInitialSize({ width: currentSize.width, height: currentSize.height });
   };
 
   const handleResizeTouchStart = (e: React.TouchEvent, direction: 'se' | 'e' | 's') => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       setIsResizing(true);
       setResizeDirection(direction);
       setDragStart({ x: touch.clientX, y: touch.clientY });
-      // Use current local size as initial size for accurate resizing
-      setInitialSize({ width: localSize.width, height: localSize.height });
+      setInitialSize({ width: currentSize.width, height: currentSize.height });
     }
   };
 
@@ -230,10 +189,10 @@ export default function TextFieldComponent({
         msUserSelect: 'none',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
-        left: localPosition.x * scale,
-        top: localPosition.y * scale,
-        width: localSize.width * scale,
-        height: localSize.height * scale,
+        left: currentPosition.x * scale,
+        top: currentPosition.y * scale,
+        width: currentSize.width * scale,
+        height: currentSize.height * scale,
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
         minWidth: 50 * scale,
         minHeight: 20 * scale,
@@ -245,26 +204,23 @@ export default function TextFieldComponent({
       <div className="w-full h-full flex items-center px-2 text-sm text-gray-600 pointer-events-none overflow-hidden select-none">
         {field.name}
       </div>
-      
+
       {isSelected && (
         <>
-          {/* Southeast resize handle */}
           <div
             className="absolute bottom-0 right-0 w-2 h-2 bg-primary border border-white cursor-se-resize transform translate-x-1 translate-y-1 touch-none"
             onMouseDown={(e) => handleResizeMouseDown(e, 'se')}
             onTouchStart={(e) => handleResizeTouchStart(e, 'se')}
             data-testid="resize-handle-se"
           />
-          
-          {/* East resize handle */}
+
           <div
             className="absolute top-1/2 right-0 w-1.5 h-5 bg-primary border border-white cursor-e-resize transform translate-x-1 -translate-y-1/2 touch-none"
             onMouseDown={(e) => handleResizeMouseDown(e, 'e')}
             onTouchStart={(e) => handleResizeTouchStart(e, 'e')}
             data-testid="resize-handle-e"
           />
-          
-          {/* South resize handle */}
+
           <div
             className="absolute bottom-0 left-1/2 w-5 h-1.5 bg-primary border border-white cursor-s-resize transform translate-y-1 -translate-x-1/2 touch-none"
             onMouseDown={(e) => handleResizeMouseDown(e, 's')}
