@@ -24,10 +24,22 @@ export default function TextFieldComponent({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialPosition, setInitialPosition] = useState({ x: 0, y: 0 });
   const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
+  
+  // Local position state for real-time dragging
+  const [localPosition, setLocalPosition] = useState({ x: field.x, y: field.y });
+  const [localSize, setLocalSize] = useState({ width: field.width, height: field.height });
 
   const fieldRef = useRef<HTMLDivElement>(null);
 
   const scale = zoomLevel / 100;
+
+  // Update local state when field props change
+  useEffect(() => {
+    if (!isDragging && !isResizing) {
+      setLocalPosition({ x: field.x, y: field.y });
+      setLocalSize({ width: field.width, height: field.height });
+    }
+  }, [field.x, field.y, field.width, field.height, isDragging, isResizing]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -36,7 +48,8 @@ export default function TextFieldComponent({
         const deltaY = (e.clientY - dragStart.y) / scale;
         const newX = Math.max(0, initialPosition.x + deltaX);
         const newY = Math.max(0, initialPosition.y + deltaY);
-        onUpdatePosition(newX, newY);
+        // Update local position immediately for real-time feedback
+        setLocalPosition({ x: newX, y: newY });
       } else if (isResizing && resizeDirection) {
         const deltaX = (e.clientX - dragStart.x) / scale;
         const deltaY = (e.clientY - dragStart.y) / scale;
@@ -51,7 +64,8 @@ export default function TextFieldComponent({
           newHeight = Math.max(20, initialSize.height + deltaY);
         }
 
-        onUpdateSize(newWidth, newHeight);
+        // Update local size immediately for real-time feedback
+        setLocalSize({ width: newWidth, height: newHeight });
       }
     };
 
@@ -62,7 +76,8 @@ export default function TextFieldComponent({
         const deltaY = (touch.clientY - dragStart.y) / scale;
         const newX = Math.max(0, initialPosition.x + deltaX);
         const newY = Math.max(0, initialPosition.y + deltaY);
-        onUpdatePosition(newX, newY);
+        // Update local position immediately for real-time feedback
+        setLocalPosition({ x: newX, y: newY });
       } else if (isResizing && resizeDirection && e.touches.length === 1) {
         const touch = e.touches[0];
         const deltaX = (touch.clientX - dragStart.x) / scale;
@@ -78,17 +93,32 @@ export default function TextFieldComponent({
           newHeight = Math.max(20, initialSize.height + deltaY);
         }
 
-        onUpdateSize(newWidth, newHeight);
+        // Update local size immediately for real-time feedback
+        setLocalSize({ width: newWidth, height: newHeight });
       }
     };
 
     const handleMouseUp = () => {
+      // Save final position/size to server when dragging/resizing ends
+      if (isDragging) {
+        onUpdatePosition(localPosition.x, localPosition.y);
+      } else if (isResizing) {
+        onUpdateSize(localSize.width, localSize.height);
+      }
+      
       setIsDragging(false);
       setIsResizing(false);
       setResizeDirection(null);
     };
 
     const handleTouchEnd = () => {
+      // Save final position/size to server when dragging/resizing ends
+      if (isDragging) {
+        onUpdatePosition(localPosition.x, localPosition.y);
+      } else if (isResizing) {
+        onUpdateSize(localSize.width, localSize.height);
+      }
+      
       setIsDragging(false);
       setIsResizing(false);
       setResizeDirection(null);
@@ -185,10 +215,10 @@ export default function TextFieldComponent({
         WebkitTouchCallout: 'none',
       }}
       style={{
-        left: field.x * scale,
-        top: field.y * scale,
-        width: field.width * scale,
-        height: field.height * scale,
+        left: localPosition.x * scale,
+        top: localPosition.y * scale,
+        width: localSize.width * scale,
+        height: localSize.height * scale,
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
         minWidth: 50 * scale,
         minHeight: 20 * scale,
