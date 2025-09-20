@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface SidebarProps {
@@ -15,7 +14,7 @@ interface SidebarProps {
   onSelectField: (field: TextField) => void;
   onUpdateField: (id: string, updates: Partial<TextField>) => void;
   onDeleteField: (id: string) => void;
-  onExportPDF: () => void;
+  onExportPDF: (font: string) => void; // now receives the chosen font
   onUndo: () => void;
   onRestart: () => void;
   canUndo: boolean;
@@ -39,19 +38,17 @@ export default function Sidebar({
   const [fieldName, setFieldName] = useState("");
   const [fieldWidth, setFieldWidth] = useState("");
   const [fieldHeight, setFieldHeight] = useState("");
-  const [fieldFont, setFieldFont] = useState("");
+  const [selectedFont, setSelectedFont] = useState("Arial"); // global font
 
   useEffect(() => {
     if (selectedField) {
       setFieldName(selectedField.name);
       setFieldWidth(selectedField.width.toString());
       setFieldHeight(selectedField.height.toString());
-      setFieldFont(selectedField.fontFamily || "Arial"); // Default to Arial if not set
     } else {
       setFieldName("");
       setFieldWidth("");
       setFieldHeight("");
-      setFieldFont("");
     }
   }, [selectedField]);
 
@@ -62,14 +59,14 @@ export default function Sidebar({
 
   const handleNameChange = (value: string) => {
     setFieldName(value);
-    handleUpdateField('name', value);
+    handleUpdateField("name", value);
   };
 
   const handleWidthChange = (value: string) => {
     setFieldWidth(value);
     const width = parseFloat(value);
     if (!isNaN(width) && width > 0) {
-      handleUpdateField('width', width);
+      handleUpdateField("width", width);
     }
   };
 
@@ -77,13 +74,8 @@ export default function Sidebar({
     setFieldHeight(value);
     const height = parseFloat(value);
     if (!isNaN(height) && height > 0) {
-      handleUpdateField('height', height);
+      handleUpdateField("height", height);
     }
-  };
-
-  const handleFontChange = (value: string) => {
-    setFieldFont(value);
-    handleUpdateField('fontFamily', value);
   };
 
   return (
@@ -91,7 +83,9 @@ export default function Sidebar({
       {/* Header */}
       <div className="p-6 border-b border-border">
         <h1 className="text-2xl font-bold text-foreground mb-2">PDF Form Creator</h1>
-        <p className="text-sm text-muted-foreground">Upload documents and add fillable text fields</p>
+        <p className="text-sm text-muted-foreground">
+          Upload documents and add fillable text fields
+        </p>
       </div>
 
       {/* Tools Section */}
@@ -108,6 +102,23 @@ export default function Sidebar({
             <i className="fas fa-plus"></i>
             Add Text Field
           </Button>
+
+          {/* Global Font Selector */}
+          <div className="mb-6">
+            <Label htmlFor="global-font" className="text-sm font-medium text-muted-foreground">
+              Document Font
+            </Label>
+            <Select value={selectedFont} onValueChange={setSelectedFont}>
+              <SelectTrigger className="mt-1" data-testid="select-global-font">
+                <SelectValue placeholder="Select font" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Arial">Arial</SelectItem>
+                <SelectItem value="Allura">Allura</SelectItem>
+                <SelectItem value="Dancing Script">Dancing Script</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Undo and Restart Buttons */}
           <div className="flex gap-2 mb-6">
@@ -181,21 +192,6 @@ export default function Sidebar({
                       data-testid="input-field-height"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="field-font" className="text-sm font-medium text-muted-foreground">
-                      Font Family
-                    </Label>
-                    <Select value={fieldFont} onValueChange={handleFontChange}>
-                      <SelectTrigger className="mt-1" data-testid="select-field-font">
-                        <SelectValue placeholder="Select font" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Arial">Arial</SelectItem>
-                        <SelectItem value="Vivaldi">Vivaldi</SelectItem>
-                        <SelectItem value="Zapf Chancery">Zapf Chancery</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -216,8 +212,8 @@ export default function Sidebar({
                     key={field.id}
                     className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
                       selectedField?.id === field.id
-                        ? 'bg-primary/10 border-primary/30'
-                        : 'bg-background border-border hover:border-primary/50'
+                        ? "bg-primary/10 border-primary/30"
+                        : "bg-background border-border hover:border-primary/50"
                     }`}
                     onClick={() => onSelectField(field)}
                     data-testid={`field-item-${field.id}`}
@@ -253,7 +249,7 @@ export default function Sidebar({
       {selectedDocument && (
         <div className="p-6 border-t border-border">
           <Button
-            onClick={onExportPDF}
+            onClick={() => onExportPDF(selectedFont)}
             disabled={isExporting}
             className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2 mb-3"
             data-testid="button-export-pdf"
@@ -268,4 +264,5 @@ export default function Sidebar({
       )}
     </div>
   );
-}
+    }
+            
