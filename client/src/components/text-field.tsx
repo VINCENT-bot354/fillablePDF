@@ -28,18 +28,29 @@ export default function TextFieldComponent({
   // Local position state for real-time dragging
   const [localPosition, setLocalPosition] = useState({ x: field.x, y: field.y });
   const [localSize, setLocalSize] = useState({ width: field.width, height: field.height });
+  const [justFinishedDragging, setJustFinishedDragging] = useState(false);
 
   const fieldRef = useRef<HTMLDivElement>(null);
 
   const scale = zoomLevel / 100;
 
-  // Update local state when field props change
+  // Update local state when field props change (but not if we just finished dragging)
   useEffect(() => {
-    if (!isDragging && !isResizing) {
+    if (!isDragging && !isResizing && !justFinishedDragging) {
       setLocalPosition({ x: field.x, y: field.y });
       setLocalSize({ width: field.width, height: field.height });
     }
-  }, [field.x, field.y, field.width, field.height, isDragging, isResizing]);
+  }, [field.x, field.y, field.width, field.height, isDragging, isResizing, justFinishedDragging]);
+
+  // Reset the flag after a brief delay
+  useEffect(() => {
+    if (justFinishedDragging) {
+      const timer = setTimeout(() => {
+        setJustFinishedDragging(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [justFinishedDragging]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -102,6 +113,7 @@ export default function TextFieldComponent({
       // Save final position/size to server when dragging/resizing ends
       if (isDragging) {
         onUpdatePosition(localPosition.x, localPosition.y);
+        setJustFinishedDragging(true);
       } else if (isResizing) {
         onUpdateSize(localSize.width, localSize.height);
       }
@@ -115,6 +127,7 @@ export default function TextFieldComponent({
       // Save final position/size to server when dragging/resizing ends
       if (isDragging) {
         onUpdatePosition(localPosition.x, localPosition.y);
+        setJustFinishedDragging(true);
       } else if (isResizing) {
         onUpdateSize(localSize.width, localSize.height);
       }
@@ -213,8 +226,6 @@ export default function TextFieldComponent({
         msUserSelect: 'none',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
-      }}
-      style={{
         left: localPosition.x * scale,
         top: localPosition.y * scale,
         width: localSize.width * scale,
