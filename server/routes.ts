@@ -146,12 +146,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const firstPage = pages[0];
 
           textFields.forEach((field) => {
-            firstPage.drawText(field.value, {
-              x: field.x,
-              y: field.y,
-              size: field.fontSize || 16,
-              font: embeddedFont,
-            });
+            const form = pdfDoc.getForm();
+
+textFields.forEach((field) => {
+  const textField = form.createTextField(field.id); // unique field name
+  textField.setText(field.value || "");
+  textField.addToPage(firstPage, {
+    x: field.x,
+    y: field.y,
+    width: field.width,
+    height: field.height,
+  });
+  textField.updateAppearances(embeddedFont); // <-- apply chosen font
+});
+
           });
 
           return pdfDoc.save();
