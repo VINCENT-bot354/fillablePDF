@@ -169,7 +169,8 @@ export default function TextFieldComponent({
       // If already selected, start dragging
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
-      setInitialPosition({ x: field.x, y: field.y });
+      // Use current local position as initial position for accurate dragging
+      setInitialPosition({ x: localPosition.x, y: localPosition.y });
     }
   };
 
@@ -185,7 +186,8 @@ export default function TextFieldComponent({
       const touch = e.touches[0];
       setIsDragging(true);
       setDragStart({ x: touch.clientX, y: touch.clientY });
-      setInitialPosition({ x: field.x, y: field.y });
+      // Use current local position as initial position for accurate dragging
+      setInitialPosition({ x: localPosition.x, y: localPosition.y });
     }
   };
 
@@ -196,7 +198,8 @@ export default function TextFieldComponent({
     setIsResizing(true);
     setResizeDirection(direction);
     setDragStart({ x: e.clientX, y: e.clientY });
-    setInitialSize({ width: field.width, height: field.height });
+    // Use current local size as initial size for accurate resizing
+    setInitialSize({ width: localSize.width, height: localSize.height });
   };
 
   const handleResizeTouchStart = (e: React.TouchEvent, direction: 'se' | 'e' | 's') => {
@@ -208,7 +211,8 @@ export default function TextFieldComponent({
       setIsResizing(true);
       setResizeDirection(direction);
       setDragStart({ x: touch.clientX, y: touch.clientY });
-      setInitialSize({ width: field.width, height: field.height });
+      // Use current local size as initial size for accurate resizing
+      setInitialSize({ width: localSize.width, height: localSize.height });
     }
   };
 
