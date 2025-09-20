@@ -201,7 +201,14 @@ export default function TextFieldComponent({
       onTouchStart={handleTouchStart}
       data-testid={`text-field-${field.id}`}
     >
-      <div className="w-full h-full flex items-center px-2 text-sm text-gray-600 pointer-events-none overflow-hidden select-none">
+      <div 
+        className="w-full h-full flex items-center px-2 text-sm text-gray-600 pointer-events-none overflow-hidden select-none"
+        style={{ 
+          fontFamily: field.font === 'Zapf Chancery' ? 'Zapf Chancery, cursive' : 
+                      field.font === 'Vivaldi' ? 'Vivaldi, cursive' : 
+                      'Arial, sans-serif'
+        }}
+      >
         {field.name}
       </div>
 

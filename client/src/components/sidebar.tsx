@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface SidebarProps {
   selectedDocument: Document | null;
@@ -38,20 +39,23 @@ export default function Sidebar({
   const [fieldName, setFieldName] = useState("");
   const [fieldWidth, setFieldWidth] = useState("");
   const [fieldHeight, setFieldHeight] = useState("");
+  const [fieldFont, setFieldFont] = useState("");
 
   useEffect(() => {
     if (selectedField) {
       setFieldName(selectedField.name);
       setFieldWidth(selectedField.width.toString());
       setFieldHeight(selectedField.height.toString());
+      setFieldFont(selectedField.fontFamily || "Arial"); // Default to Arial if not set
     } else {
       setFieldName("");
       setFieldWidth("");
       setFieldHeight("");
+      setFieldFont("");
     }
   }, [selectedField]);
 
-  const handleUpdateField = (property: string, value: string | number) => {
+  const handleUpdateField = (property: string, value: string | number | undefined) => {
     if (!selectedField) return;
     onUpdateField(selectedField.id, { [property]: value });
   };
@@ -77,6 +81,11 @@ export default function Sidebar({
     }
   };
 
+  const handleFontChange = (value: string) => {
+    setFieldFont(value);
+    handleUpdateField('fontFamily', value);
+  };
+
   return (
     <div className="w-80 bg-card border-r border-border flex flex-col">
       {/* Header */}
@@ -89,7 +98,7 @@ export default function Sidebar({
       {selectedDocument && (
         <div className="p-6 flex-1">
           <h2 className="text-lg font-semibold mb-4">Tools</h2>
-          
+
           {/* Add Text Field Button */}
           <Button
             onClick={onAddTextField}
@@ -123,7 +132,7 @@ export default function Sidebar({
               Restart
             </Button>
           </div>
-          
+
           {/* Field Properties Panel */}
           {selectedField && (
             <Card className="mb-6">
@@ -172,11 +181,26 @@ export default function Sidebar({
                       data-testid="input-field-height"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="field-font" className="text-sm font-medium text-muted-foreground">
+                      Font Family
+                    </Label>
+                    <Select value={fieldFont} onValueChange={handleFontChange}>
+                      <SelectTrigger className="mt-1" data-testid="select-field-font">
+                        <SelectValue placeholder="Select font" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Arial">Arial</SelectItem>
+                        <SelectItem value="Vivaldi">Vivaldi</SelectItem>
+                        <SelectItem value="Zapf Chancery">Zapf Chancery</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           )}
-          
+
           {/* Fields List */}
           <Card>
             <CardContent className="p-4">
@@ -224,7 +248,7 @@ export default function Sidebar({
           </Card>
         </div>
       )}
-      
+
       {/* Export Section */}
       {selectedDocument && (
         <div className="p-6 border-t border-border">

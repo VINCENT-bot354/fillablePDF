@@ -36,3 +36,16 @@ export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type Document = typeof documents.$inferSelect;
 export type InsertTextField = z.infer<typeof insertTextFieldSchema>;
 export type TextField = typeof textFields.$inferSelect;
+
+export const textFieldSchema = z.object({
+  id: z.string().cuid(),
+  documentId: z.string().cuid(),
+  name: z.string().min(1, "Field name is required"),
+  x: z.number().min(0),
+  y: z.number().min(0),
+  width: z.number().min(1),
+  height: z.number().min(1),
+  required: z.boolean().default(false),
+  font: z.enum(["Arial", "Vivaldi", "Zapf Chancery"]).default("Arial"),
+  createdAt: z.date().default(() => new Date()),
+});

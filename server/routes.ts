@@ -196,6 +196,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const yCoordinate = pageHeight - field.y - field.height;
         
         const textField = form.createTextField(field.name);
+        
+        // Determine font based on field.font property
+        let fontName = 'Helvetica'; // Default fallback
+        if (field.font === 'Arial') {
+          fontName = 'Helvetica'; // Arial equivalent in PDF
+        } else if (field.font === 'Vivaldi') {
+          fontName = 'Helvetica-Oblique'; // Best available cursive equivalent
+        } else if (field.font === 'Zapf Chancery') {
+          fontName = 'Helvetica-Oblique'; // Best available cursive equivalent
+        }
+        
         textField.addToPage(firstPage, {
           x: field.x,
           y: yCoordinate,
@@ -204,6 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Transparent background and border
           backgroundColor: undefined,
           borderColor: undefined,
+          font: fontName,
         });
       }
 
