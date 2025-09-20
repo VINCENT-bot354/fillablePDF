@@ -47,6 +47,6 @@ export const textFieldSchema = z.object({
   width: z.number().min(1),
   height: z.number().min(1),
   required: z.boolean().default(false),
-  fontFamily: z.enum(["Arial", "Vivaldi", "Zapf Chancery"]).default("Arial"),
+  fontFamily: z.enum(["Arial", "Allura", "Dancing Script"]).default("Arial"),
   createdAt: z.date().default(() => new Date()),
 });

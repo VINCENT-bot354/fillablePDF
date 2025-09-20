@@ -204,8 +204,8 @@ export default function TextFieldComponent({
       <div 
         className="w-full h-full flex items-center px-2 text-sm text-gray-600 pointer-events-none overflow-hidden select-none"
         style={{ 
-          fontFamily: field.fontFamily === 'Zapf Chancery' ? 'Zapf Chancery, cursive' : 
-                      field.fontFamily === 'Vivaldi' ? 'Vivaldi, cursive' : 
+          fontFamily: field.fontFamily === 'Dancing Script' ? 'Dancing Script, cursive' : 
+                      field.fontFamily === 'Allura' ? 'Allura, cursive' : 
                       'Arial, sans-serif'
         }}
       >
